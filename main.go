@@ -83,10 +83,8 @@ func main() {
 		case github.IssueCommentPayload:
 			p := payload.(github.IssueCommentPayload)
 
-			fmt.Println(p.Comment.Body)
-
 			if strings.Contains(p.Comment.Body, "trello.com/c/") {
-				fmt.Printf("Issue #%d is attached to a trello card",
+				log.Printf("Issue #%d is attached to a trello card",
 					p.Issue.Number)
 
 				pr, _, err := client.PullRequests.Get(context.Background(), p.Repository.Owner.Login, p.Repository.Name, int(p.Issue.Number))
