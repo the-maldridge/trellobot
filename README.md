@@ -19,3 +19,4 @@ from the environment:
   actually GitHub calling and must match the value set in GitHub.
 * GITHUB_PERSONAL_TOKEN - This value must be a personal access token
   with the repo:status scope.
+* WEBHOOK_PATH - This is the path that the webhook will listen for.

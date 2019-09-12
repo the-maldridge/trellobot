@@ -13,15 +13,16 @@ import (
 	"gopkg.in/go-playground/webhooks.v5/github"
 )
 
-const (
-	path = "/webhooks"
-)
-
 var (
-	webhookSecret, personalAccessToken string
+	path, webhookSecret, personalAccessToken string
 )
 
 func init() {
+	path = os.Getenv("WEBHOOK_PATH")
+	if path == "" {
+		path = "/trellobot"
+	}
+
 	webhookSecret = os.Getenv("GITHUB_WEBHOOK_SECRET")
 	if webhookSecret == "" {
 		log.Fatal("GITHUB_WEBHOOK_SECRET must be specified!")
