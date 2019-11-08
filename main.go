@@ -58,6 +58,42 @@ func hasTrelloCard(ctx context.Context, client *gapi.Client, owner, repo string,
 	return false
 }
 
+func processPR(ctx context.Context, client *gapi.Client, owner, repo string, number int) {
+	if !hasTrelloCard(ctx, client, owner, repo, number) {
+		return
+	}
+
+	log.Printf("Issue #%d is attached to a trello card", number)
+
+	pr, _, err := client.PullRequests.Get(ctx, owner, repo, number)
+	if err != nil {
+		log.Println("Couldn't get PR", err)
+		return
+	}
+
+	status := &gapi.RepoStatus{
+		State: func() *string {
+			s := "success"
+			return &s
+		}(),
+		Context: func() *string {
+			s := "trello/attached-card"
+			return &s
+		}(),
+	}
+
+	_, _, err = client.Repositories.CreateStatus(
+		context.Background(),
+		owner,
+		repo,
+		pr.GetHead().GetSHA(),
+		status,
+	)
+	if err != nil {
+		log.Println("Couldn't clear status on PR", number, err)
+	}
+}
+
 func main() {
 	hook, _ := github.New(github.Options.Secret(webhookSecret))
 
@@ -70,7 +106,12 @@ func main() {
 	client := gapi.NewClient(tc)
 
 	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-		payload, err := hook.Parse(r, github.IssueCommentEvent, github.PullRequestEvent)
+		payload, err := hook.Parse(r,
+			github.IssueCommentEvent,
+			github.PullRequestEvent,
+			github.PushEvent,
+			github.PullRequestReviewEvent,
+		)
 		if err != nil {
 			if err == github.ErrEventNotFound {
 				// ok event wasn't one of the ones asked to be parsed
@@ -107,47 +148,22 @@ func main() {
 			}
 		case github.IssueCommentPayload:
 			p := payload.(github.IssueCommentPayload)
+			processPR(r.Context(), client, p.Repository.Owner.Login, p.Repository.Name, int(p.Issue.Number))
+		case github.PullRequestReviewPayload:
+			p := payload.(github.PullRequestReviewPayload)
+			processPR(r.Context(), client, p.Repository.Owner.Login, p.Repository.Name, int(p.PullRequest.Number))
+		case github.PullRequestReviewCommentPayload:
+			p := payload.(github.PullRequestReviewCommentPayload)
+			processPR(r.Context(), client, p.Repository.Owner.Login, p.Repository.Name, int(p.PullRequest.Number))
+		case github.PushPayload:
+			p := payload.(github.PushPayload)
 
-			card := hasTrelloCard(
-				r.Context(),
-				client,
-				p.Repository.Owner.Login,
-				p.Repository.Name,
-				int(p.Issue.Number),
-			)
-
-			if card {
-				log.Printf("Issue #%d is attached to a trello card",
-					p.Issue.Number)
-
-				pr, _, err := client.PullRequests.Get(context.Background(), p.Repository.Owner.Login, p.Repository.Name, int(p.Issue.Number))
-				if err != nil {
-					log.Println("Couldn't get PR", err)
-					return
-				}
-
-				status := &gapi.RepoStatus{
-					State: func() *string {
-						s := "success"
-						return &s
-					}(),
-					Context: func() *string {
-						s := "trello/attached-card"
-						return &s
-					}(),
-				}
-
-				_, _, err = client.Repositories.CreateStatus(
-					context.Background(),
-					p.Repository.Owner.Login,
-					p.Repository.Name,
-					pr.GetHead().GetSHA(),
-					status,
-				)
-				if err != nil {
-					log.Println("Couldn't clear status on PR", p.Issue.Number, err)
-					return
-				}
+			res, _, err := client.PullRequests.ListPullRequestsWithCommit(r.Context(), p.Repository.Owner.Login, p.Repository.Name, p.After, nil)
+			if err != nil {
+				return
+			}
+			for _, pr := range res {
+				processPR(r.Context(), client, p.Repository.Owner.Login, p.Repository.Name, *pr.Number)
 			}
 		}
 	})
