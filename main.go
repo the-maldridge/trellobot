@@ -50,6 +50,7 @@ func main() {
 		if err != nil {
 			if err == github.ErrEventNotFound {
 				// ok event wasn't one of the ones asked to be parsed
+				return
 			}
 		}
 
