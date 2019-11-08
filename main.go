@@ -34,6 +34,30 @@ func init() {
 	}
 }
 
+func hasTrelloCard(ctx context.Context, client *gapi.Client, owner, repo string, number int) bool {
+	opt := &gapi.IssueListCommentsOptions{
+		ListOptions: gapi.ListOptions{PerPage: 10},
+	}
+	for {
+		res, resp, err := client.Issues.ListComments(ctx, owner, repo, number, opt)
+		if err != nil {
+			log.Println("Error getting comments:", err)
+		}
+		for _, c := range res {
+			log.Println(c.GetBody())
+			if strings.Contains(c.GetBody(), "trello.com/c/") {
+				log.Printf("Issue #%d is attached to a trello card", number)
+				return true
+			}
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+	return false
+}
+
 func main() {
 	hook, _ := github.New(github.Options.Secret(webhookSecret))
 
@@ -61,7 +85,7 @@ func main() {
 
 			status := &gapi.RepoStatus{
 				State: func() *string {
-					s := "pending"
+					s := "failure"
 					return &s
 				}(),
 				Context: func() *string {
@@ -84,7 +108,15 @@ func main() {
 		case github.IssueCommentPayload:
 			p := payload.(github.IssueCommentPayload)
 
-			if strings.Contains(p.Comment.Body, "trello.com/c/") {
+			card := hasTrelloCard(
+				r.Context(),
+				client,
+				p.Repository.Owner.Login,
+				p.Repository.Name,
+				int(p.Issue.Number),
+			)
+
+			if card {
 				log.Printf("Issue #%d is attached to a trello card",
 					p.Issue.Number)
 
