@@ -123,29 +123,7 @@ func main() {
 
 		case github.PullRequestPayload:
 			pullRequest := payload.(github.PullRequestPayload)
-
-			status := &gapi.RepoStatus{
-				State: func() *string {
-					s := "failure"
-					return &s
-				}(),
-				Context: func() *string {
-					s := "trello/attached-card"
-					return &s
-				}(),
-			}
-
-			_, _, err := client.Repositories.CreateStatus(
-				context.Background(),
-				pullRequest.PullRequest.Head.Repo.Owner.Login,
-				pullRequest.PullRequest.Head.Repo.Name,
-				pullRequest.PullRequest.Head.Sha,
-				status,
-			)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
+			processPR(r.Context(), client, pullRequest.PullRequest.Head.Repo.Owner.Login, pullRequest.PullRequest.Head.Repo.Name, int(pullRequest.PullRequest.Number))
 		case github.IssueCommentPayload:
 			p := payload.(github.IssueCommentPayload)
 			processPR(r.Context(), client, p.Repository.Owner.Login, p.Repository.Name, int(p.Issue.Number))
