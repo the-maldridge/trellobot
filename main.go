@@ -122,7 +122,7 @@ func main() {
 
 		case github.PullRequestPayload:
 			pullRequest := payload.(github.PullRequestPayload)
-			processPR(r.Context(), client, pullRequest.PullRequest.Head.Repo.Owner.Login, pullRequest.PullRequest.Head.Repo.Name, int(pullRequest.PullRequest.Number))
+			processPR(r.Context(), client, pullRequest.PullRequest.Base.Repo.Owner.Login, pullRequest.PullRequest.Base.Repo.Name, int(pullRequest.PullRequest.Number))
 		case github.IssueCommentPayload:
 			p := payload.(github.IssueCommentPayload)
 			processPR(r.Context(), client, p.Repository.Owner.Login, p.Repository.Name, int(p.Issue.Number))
